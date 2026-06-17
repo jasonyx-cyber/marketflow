@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VaultX — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:       #020408;
+      --surface:  #060c14;
+      --surface2: #0a1220;
+      --border:   rgba(255,255,255,0.06);
+      --accent:   #d4a017;
+      --up:       #00e5a0;
+      --down:     #ff3d5a;
+      --text:     #dde3f0;
+      --muted:    #3d4f6e;
+      --font-head: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font-head);
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── Canvas ── */
+    #flow-canvas {
+      position: fixed; inset: 0; z-index: 0; opacity: 0.7; pointer-events: none;
+    }
+
+    .noise {
+      pointer-events: none; position: fixed; inset: 0; z-index: 1; opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ── Layout ── */
+    .page {
+      position: relative; z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100vh;
+    }
+
+    /* ── Left panel ── */
+    .left {
+      display: flex; flex-direction: column;
+      justify-content: space-between;
+      padding: 48px;
+      border-right: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .left-glow {
+      position: absolute;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(212,160,23,0.07) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 1.2rem; font-weight: 800;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      animation: fadeUp 0.6s ease both;
+    }
+    .logo-mark {
+      color: var(--accent); font-size: 1.6rem;
+      filter: drop-shadow(0 0 10px rgba(212,160,23,0.8));
+    }
+    .logo-text {
+      background: linear-gradient(90deg, #d4a017, #ffe066, #d4a017);
+      background-size: 200%;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      animation: shimmer-text 4s linear infinite;
+    }
+    @keyframes shimmer-text { 0%{background-position:0%} 100%{background-position:200%} }
+
+    .hero-copy {
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+    .hero-label {
+      font-family: var(--font-mono); font-size: 0.68rem;
+      letter-spacing: 0.22em; color: var(--accent);
+      margin-bottom: 20px;
+      text-shadow: 0 0 12px rgba(212,160,23,0.5);
+    }
+    .hero-title {
+      font-size: clamp(3rem, 5vw, 5rem);
+      font-weight: 800; line-height: 0.93;
+      letter-spacing: -0.03em; margin-bottom: 24px;
+    }
+    .hero-title em {
+      font-style: normal;
+      background: linear-gradient(135deg, #d4a017, #ffe066);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero-desc {
+      font-family: var(--font-mono); font-size: 0.82rem;
+      color: var(--muted); line-height: 1.7; max-width: 380px;
+    }
+
+    /* Stats row */
+    .stats {
+      display: flex; gap: 32px;
+      animation: fadeUp 0.7s 0.2s ease both;
+    }
+    .stat { display: flex; flex-direction: column; gap: 4px; }
+    .stat-val {
+      font-family: var(--font-mono); font-size: 1.4rem;
+      font-weight: 500; color: var(--text);
+    }
+    .stat-val span { color: var(--accent); }
+    .stat-label {
+      font-family: var(--font-mono); font-size: 0.65rem;
+      letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase;
+    }
+
+    /* Ticker strip at bottom of left */
+    .mini-ticker {
+      display: flex; gap: 0; overflow: hidden;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      animation: fadeUp 0.7s 0.3s ease both;
+    }
+    .mini-ticker-inner {
+      display: flex; gap: 0;
+      animation: ticker 20s linear infinite;
+      white-space: nowrap; font-family: var(--font-mono); font-size: 0.72rem;
+    }
+    .t-item {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 0 24px; color: var(--muted);
+      border-right: 1px solid var(--border);
+    }
+    .t-name { color: var(--text); font-weight: 600; }
+    .t-up   { color: var(--up); }
+    .t-dn   { color: var(--down); }
+    @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+    /* ── Right panel — Auth form ── */
+    .right {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 48px;
+      position: relative;
+    }
+
+    .auth-box {
+      width: 100%; max-width: 400px;
+      animation: fadeUp 0.7s 0.15s ease both;
+    }
+
+    .auth-tabs {
+      display: flex; gap: 2px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 4px;
+      margin-bottom: 36px;
+    }
+    .auth-tab {
+      flex: 1; padding: 10px;
+      background: transparent; border: none;
+      color: var(--muted); font-family: var(--font-head);
+      font-size: 0.85rem; font-weight: 700;
+      border-radius: 9px; cursor: pointer;
+      transition: all 0.2s; letter-spacing: 0.04em;
+    }
+    .auth-tab.active {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+
+    /* Form panels */
+    .form-panel { display: none; flex-direction: column; gap: 16px; }
+    .form-panel.active { display: flex; }
+
+    .form-title {
+      font-size: 1.6rem; font-weight: 800;
+      letter-spacing: -0.02em; margin-bottom: 4px;
+    }
+    .form-sub {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      color: var(--muted); margin-bottom: 8px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    .field label {
+      font-family: var(--font-mono); font-size: 0.7rem;
+      letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase;
+    }
+
+    .field-wrap {
+      position: relative; display: flex; align-items: center;
+    }
+    .field-icon {
+      position: absolute; left: 14px;
+      color: var(--muted); font-size: 0.9rem; pointer-events: none;
+    }
+    .field input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font-mono);
+      font-size: 0.88rem; padding: 13px 14px 13px 40px;
+      border-radius: 10px; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .field input::placeholder { color: var(--muted); }
+    .field input:focus {
+      border-color: rgba(212,160,23,0.5);
+      box-shadow: 0 0 0 3px rgba(212,160,23,0.08);
+    }
+
+    .forgot {
+      font-family: var(--font-mono); font-size: 0.72rem;
+      color: var(--muted); text-decoration: none;
+      text-align: right; display: block; margin-top: -6px;
+      transition: color 0.2s;
+    }
+    .forgot:hover { color: var(--accent); }
+
+    .submit-btn {
+      width: 100%; padding: 15px;
+      background: linear-gradient(135deg, #d4a017, #b8860b);
+      color: #000; font-family: var(--font-head);
+      font-size: 0.92rem; font-weight: 800;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      border: none; border-radius: 12px; cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 24px rgba(212,160,23,0.3);
+      position: relative; overflow: hidden;
+      margin-top: 4px;
+    }
+    .submit-btn::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.4s;
+    }
+    .submit-btn:hover::after { transform: translateX(100%); }
+    .submit-btn:hover  { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 32px rgba(212,160,23,0.4); }
+    .submit-btn:active { transform: translateY(0); }
+
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted);
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* OAuth buttons */
+    .oauth-row { display: flex; gap: 10px; }
+    .oauth-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font-head);
+      font-size: 0.8rem; font-weight: 600;
+      padding: 12px; border-radius: 10px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .oauth-btn:hover { border-color: rgba(212,160,23,0.3); background: var(--surface2); }
+    .oauth-icon { font-size: 1.1rem; }
+
+    /* Terms */
+    .terms {
+      font-family: var(--font-mono); font-size: 0.68rem;
+      color: var(--muted); text-align: center; line-height: 1.6; margin-top: 4px;
+    }
+    .terms a { color: var(--accent); text-decoration: none; }
+
+    /* Password strength */
+    .strength-bar {
+      height: 3px; border-radius: 2px;
+      background: var(--border); overflow: hidden; margin-top: -6px;
+    }
+    .strength-fill {
+      height: 100%; width: 0%; border-radius: 2px;
+      transition: width 0.3s, background 0.3s;
+    }
+
+    /* Success state */
+    .success-msg {
+      display: none; flex-direction: column; align-items: center;
+      gap: 16px; text-align: center; padding: 24px 0;
+    }
+    .success-icon {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+      animation: scaleIn 0.4s ease;
+    }
+    @keyframes scaleIn { from{transform:scale(0)} to{transform:scale(1)} }
+    .success-title { font-size: 1.3rem; font-weight: 700; }
+    .success-sub { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+
+    /* Enter animation */
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* Responsive */
+    @media (max-width: 800px) {
+      body { overflow-y: auto; }
+      .page { grid-template-columns: 1fr; height: auto; }
+      .left { display: none; }
+      .right { min-height: 100vh; padding: 40px 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="flow-canvas"></canvas>
+  <div class="noise"></div>
+
+  <div class="page">
+
+    <!-- LEFT: Branding -->
+    <div class="left">
+      <div class="left-glow"></div>
+
+      <div class="logo">
+        <span class="logo-mark">⬡</span>
+        <span class="logo-text">VaultX</span>
+      </div>
+
+      <div class="hero-copy">
+        <div class="hero-label">LIVE MARKET INTELLIGENCE</div>
+        <h1 class="hero-title">Your crypto.<br /><em>Your vault.</em></h1>
+        <p class="hero-desc">
+          Real-time prices across 10,000+ coins. Portfolio tracking,
+          price alerts, and market intelligence — all in one place.
+        </p>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-val">10<span>K+</span></div>
+          <div class="stat-label">Coins Tracked</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">37<span>+</span></div>
+          <div class="stat-label">Currencies</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">30<span>s</span></div>
+          <div class="stat-label">Refresh Rate</div>
+        </div>
+      </div>
+
+      <div class="mini-ticker">
+        <div class="mini-ticker-inner" id="ticker">
+          <span class="t-item"><span class="t-name">BTC</span><span>$77,396</span><span class="t-up">▲ 1.06%</span></span>
+          <span class="t-item"><span class="t-name">ETH</span><span>$2,130</span><span class="t-dn">▼ 0.18%</span></span>
+          <span class="t-item"><span class="t-name">SOL</span><span>$84.90</span><span class="t-dn">▼ 0.51%</span></span>
+          <span class="t-item"><span class="t-name">BNB</span><span>$643.84</span><span class="t-up">▲ 0.30%</span></span>
+          <span class="t-item"><span class="t-name">ADA</span><span>$0.249</span><span class="t-dn">▼ 0.77%</span></span>
+          <span class="t-item"><span class="t-name">DOGE</span><span>$0.103</span><span class="t-dn">▼ 0.71%</span></span>
+          <span class="t-item"><span class="t-name">BTC</span><span>$77,396</span><span class="t-up">▲ 1.06%</span></span>
+          <span class="t-item"><span class="t-name">ETH</span><span>$2,130</span><span class="t-dn">▼ 0.18%</span></span>
+          <span class="t-item"><span class="t-name">SOL</span><span>$84.90</span><span class="t-dn">▼ 0.51%</span></span>
+          <span class="t-item"><span class="t-name">BNB</span><span>$643.84</span><span class="t-up">▲ 0.30%</span></span>
+          <span class="t-item"><span class="t-name">ADA</span><span>$0.249</span><span class="t-dn">▼ 0.77%</span></span>
+          <span class="t-item"><span class="t-name">DOGE</span><span>$0.103</span><span class="t-dn">▼ 0.71%</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Auth -->
+    <div class="right">
+      <div class="auth-box">
+
+        <!-- Tabs -->
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-panel="signin">Sign In</button>
+          <button class="auth-tab" data-panel="signup">Create Account</button>
+        </div>
+
+        <!-- Sign In -->
+        <div class="form-panel active" id="panel-signin">
+          <div class="form-title">Welcome back</div>
+          <div class="form-sub">Sign in to access your vault</div>
+
+          <div class="field">
+            <label>Email</label>
+            <div class="field-wrap">
+              <span class="field-icon">✉</span>
+              <input type="email" placeholder="you@example.com" autocomplete="email" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Password</label>
+            <div class="field-wrap">
+              <span class="field-icon">🔒</span>
+              <input type="password" placeholder="Your password" autocomplete="current-password" />
+            </div>
+          </div>
+
+          <a href="#" class="forgot">Forgot password?</a>
+
+          <button class="submit-btn" id="signin-btn">Sign In →</button>
+
+          <div class="divider">or continue with</div>
+
+          <div class="oauth-row">
+            <button class="oauth-btn"><span class="oauth-icon">G</span> Google</button>
+            <button class="oauth-btn"><span class="oauth-icon">🍎</span> Apple</button>
+          </div>
+        </div>
+
+        <!-- Sign Up -->
+        <div class="form-panel" id="panel-signup">
+          <div class="form-title">Join VaultX</div>
+          <div class="form-sub">Create your free account in seconds</div>
+
+          <div class="field">
+            <label>Full Name</label>
+            <div class="field-wrap">
+              <span class="field-icon">👤</span>
+              <input type="text" placeholder="Your name" autocomplete="name" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Email</label>
+            <div class="field-wrap">
+              <span class="field-icon">✉</span>
+              <input type="email" placeholder="you@example.com" autocomplete="email" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Password</label>
+            <div class="field-wrap">
+              <span class="field-icon">🔒</span>
+              <input type="password" id="signup-password" placeholder="Min. 8 characters" autocomplete="new-password" />
+            </div>
+            <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+          </div>
+
+          <button class="submit-btn" id="signup-btn">Create Account →</button>
+
+          <div class="divider">or sign up with</div>
+
+          <div class="oauth-row">
+            <button class="oauth-btn"><span class="oauth-icon">G</span> Google</button>
+            <button class="oauth-btn"><span class="oauth-icon">🍎</span> Apple</button>
+          </div>
+
+          <p class="terms">
+            By creating an account you agree to our
+            <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+          </p>
+        </div>
+
+        <!-- Success state (shown after submit) -->
+        <div class="success-msg" id="success-msg">
+          <div class="success-icon">✓</div>
+          <div class="success-title">You're in!</div>
+          <div class="success-sub">Redirecting to your vault…</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ── Flowing lines (same as dashboard) ── */
+    (function () {
+      const canvas = document.getElementById('flow-canvas');
+      const ctx    = canvas.getContext('2d');
+      const COLORS = [
+        { r:255, g:200, b: 30 }, { r:  0, g:245, b:255 },
+        { r:180, g: 80, b:255 }, { r:  0, g:255, b:160 },
+        { r:255, g: 50, b:100 }, { r: 80, g:180, b:255 },
+        { r:255, g:120, b: 30 },
+      ];
+      let W, H, lines;
+      function rand(a,b){ return a + Math.random()*(b-a); }
+
+      class FlowLine {
+        constructor(){ this.reset(true); }
+        reset(initial){
+          this.color = COLORS[Math.floor(Math.random()*COLORS.length)];
+          this.width = rand(0.6, 2.2);
+          this.speed = rand(0.18, 0.55);
+          this.alpha = rand(0.35, 0.75);
+          this.freq  = rand(0.0008, 0.003);
+          this.amp   = rand(40, 160);
+          this.phase = rand(0, Math.PI*2);
+          this.offset= rand(0, H);
+          this.x     = initial ? rand(0,W) : -20;
+        }
+        draw(){
+          const {r,g,b} = this.color;
+          ctx.beginPath();
+          ctx.lineWidth = this.width;
+          const steps = Math.ceil(W/4);
+          for(let i=0;i<=steps;i++){
+            const px = (i/steps)*W;
+            const py = this.offset
+              + Math.sin(px*this.freq*2 + this.phase + this.x*0.001)*this.amp
+              + Math.sin(px*this.freq*0.7 + this.phase*1.3)*(this.amp*0.4);
+            i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+          }
+          const grad = ctx.createLinearGradient(0,0,W,0);
+          grad.addColorStop(0,  `rgba(${r},${g},${b},0)`);
+          grad.addColorStop(0.3,`rgba(${r},${g},${b},${this.alpha})`);
+          grad.addColorStop(0.7,`rgba(${r},${g},${b},${this.alpha})`);
+          grad.addColorStop(1,  `rgba(${r},${g},${b},0)`);
+          ctx.strokeStyle = grad;
+          ctx.stroke();
+          this.phase += this.speed*0.012;
+          this.x     += this.speed;
+          if(this.x > W+20) this.reset(false);
+        }
+      }
+
+      function init(){
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        lines = Array.from({length: Math.floor(W/80)+8}, ()=>new FlowLine());
+      }
+      function animate(){
+        ctx.clearRect(0,0,W,H);
+        lines.forEach(l=>l.draw());
+        requestAnimationFrame(animate);
+      }
+      window.addEventListener('resize', init);
+      init(); animate();
+    })();
+
+    /* ── Tab switching ── */
+    document.querySelectorAll('.auth-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+      });
+    });
+
+    /* ── Password strength ── */
+    const pwInput    = document.getElementById('signup-password');
+    const strengthEl = document.getElementById('strength-fill');
+    const COLORS_STR = ['#ff3d5a','#ff7a30','#d4a017','#00e5a0'];
+
+    pwInput?.addEventListener('input', () => {
+      const v = pwInput.value;
+      let score = 0;
+      if (v.length >= 8)              score++;
+      if (/[A-Z]/.test(v))            score++;
+      if (/[0-9]/.test(v))            score++;
+      if (/[^A-Za-z0-9]/.test(v))     score++;
+      strengthEl.style.width      = `${(score/4)*100}%`;
+      strengthEl.style.background = COLORS_STR[score-1] || 'transparent';
+    });
+
+    /* ── Sign in submit ── */
+    document.getElementById('signin-btn').addEventListener('click', async function() {
+      const btn = this;
+      const panel = document.getElementById('panel-signin');
+      const email = panel.querySelector('input[type="email"]').value.trim();
+      const password = panel.querySelector('input[type="password"]').value;
+      if (!email || !password) { alert('Email and password required.'); return; }
+      btn.textContent = 'Signing in…'; btn.disabled = true;
+      try {
+        const res = await fetch('/auth/signin', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const j = await res.json();
+        if (res.ok && j.status === 'ok') {
+          panel.style.display = 'none';
+          document.getElementById('success-msg').style.display = 'flex';
+          setTimeout(() => { window.location.href = j.redirect || '/'; }, 900);
+        } else {
+          alert(j.message || 'Sign in failed.');
+        }
+      } catch (err) { alert('Network error: ' + err.message); }
+      btn.textContent = 'Sign In →'; btn.disabled = false;
+    });
+
+    /* ── Sign up submit ── */
+    document.getElementById('signup-btn').addEventListener('click', async function() {
+      const btn = this;
+      const panel = document.getElementById('panel-signup');
+      const name = panel.querySelector('input[placeholder="Your name"]').value.trim();
+      const email = panel.querySelector('input[type="email"]').value.trim();
+      const password = panel.querySelector('#signup-password').value;
+      if (!email || !password) { alert('Email and password required.'); return; }
+      if (password.length < 8) { alert('Password must be at least 8 characters.'); return; }
+      btn.textContent = 'Creating account…'; btn.disabled = true;
+      try {
+        const res = await fetch('/auth/signup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+        const j = await res.json();
+        if (res.ok && j.status === 'ok') {
+          panel.style.display = 'none';
+          document.getElementById('success-msg').style.display = 'flex';
+          setTimeout(() => { window.location.href = j.redirect || '/'; }, 900);
+        } else {
+          alert(j.message || 'Sign up failed.');
+        }
+      } catch (err) { alert('Network error: ' + err.message); }
+      btn.textContent = 'Create Account →'; btn.disabled = false;
+    });
+  </script>
+</body>
+</html>
