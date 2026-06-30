@@ -824,6 +824,48 @@ function renderTimestamp() {
   el.textContent = `Updated ${time}`;
 }
 
+   async function renderNews() {
+  const list = document.querySelector("[data-news-list]");
+  const status = document.querySelector("[data-news-status]");
+  if (!list) return;
+
+  try {
+    const res = await fetch("/news");
+    const data = await res.json();
+
+    if (data.status !== "ok" || !data.articles || data.articles.length === 0) {
+      status.textContent = "Unavailable";
+      list.innerHTML = `<div class="empty-note">${
+        data.message || "No news available right now. Check back shortly."
+      }</div>`;
+      return;
+    }
+
+    status.textContent = `${data.articles.length} stories`;
+    list.innerHTML = data.articles.map((a) => {
+      const date = a.published
+        ? new Date(a.published).toLocaleDateString([], { month: "short", day: "numeric" })
+        : "";
+      const thumb = a.thumb
+        ? `<img class="news-thumb" src="${a.thumb}" alt="" loading="lazy">`
+        : `<div class="news-thumb"></div>`;
+      return `
+        <a class="news-item" href="${a.url}" target="_blank" rel="noopener">
+          ${thumb}
+          <div class="news-body">
+            <div class="news-title">${a.title}</div>
+            <div class="news-meta">
+              <span class="src">${a.source || "Source"}</span>
+              <span>${date}</span>
+            </div>
+          </div>
+        </a>`;
+    }).join("");
+  } catch (err) {
+    status.textContent = "Error";
+    list.innerHTML = `<div class="empty-note">Couldn't reach the news service. It may be temporarily unavailable.</div>`;
+  }
+}
 document.addEventListener("DOMContentLoaded", () => {
   renderTicker();
   renderTimestamp();
