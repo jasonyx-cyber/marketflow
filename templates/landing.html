@@ -1,632 +1,715 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>VaultX — Sign In</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg:       #020408;
-      --surface:  #060c14;
-      --surface2: #0a1220;
-      --border:   rgba(255,255,255,0.06);
-      --accent:   #d4a017;
-      --up:       #00e5a0;
-      --down:     #ff3d5a;
-      --text:     #dde3f0;
-      --muted:    #3d4f6e;
-      --font-head: 'Syne', sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VaultX — Portfolio tracking, without the noise</title>
+<style>
+/* ==========================================================================
+   VaultX — design tokens
+   Monotone base (near-black / off-white) + single blue accent.
+   Red/green pulled from CoinGecko's own ticker palette (#EA3943 / #16C784)
+   since that's the actual source of the price data this UI displays.
+   ========================================================================== */
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-    body {
-      font-family: var(--font-head);
-      background: var(--bg);
-      color: var(--text);
-      overflow: hidden;
-      position: relative;
-    }
+:root {
+  /* surfaces */
+  --bg: #0a0a0b;
+  --bg-elevated: #131316;
+  --bg-elevated-2: #1b1b1f;
+  --border: #28282c;
+  --border-subtle: #1c1c20;
 
-    /* ── Canvas ── */
-    #flow-canvas {
-      position: fixed; inset: 0; z-index: 0; opacity: 0.7; pointer-events: none;
-    }
+  /* text */
+  --text: #f2f2f0;
+  --text-dim: #8b8b90;
+  --text-faint: #5c5c61;
 
-    .noise {
-      pointer-events: none; position: fixed; inset: 0; z-index: 1; opacity: 0.025;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    }
+  /* accent */
+  --blue: #2f6fed;
+  --blue-bright: #5b8fff;
+  --blue-dim: #1e4fb8;
 
-    /* ── Layout ── */
-    .page {
-      position: relative; z-index: 2;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      height: 100vh;
-    }
+  /* semantic (CoinGecko-aligned) */
+  --green: #16c784;
+  --red: #ea3943;
 
-    /* ── Left panel ── */
-    .left {
-      display: flex; flex-direction: column;
-      justify-content: space-between;
-      padding: 48px;
-      border-right: 1px solid var(--border);
-      position: relative;
-      overflow: hidden;
-    }
+  /* type */
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --tracking: -0.1px;
 
-    .left-glow {
-      position: absolute;
-      width: 600px; height: 600px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(212,160,23,0.07) 0%, transparent 70%);
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-    }
+  /* layout */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --max-width: 1160px;
+}
 
-    .logo {
-      display: flex; align-items: center; gap: 12px;
-      font-size: 1.2rem; font-weight: 800;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      animation: fadeUp 0.6s ease both;
-    }
-    .logo-mark {
-      color: var(--accent); font-size: 1.6rem;
-      filter: drop-shadow(0 0 10px rgba(212,160,23,0.8));
-    }
-    .logo-text {
-      background: linear-gradient(90deg, #d4a017, #ffe066, #d4a017);
-      background-size: 200%;
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      animation: shimmer-text 4s linear infinite;
-    }
-    @keyframes shimmer-text { 0%{background-position:0%} 100%{background-position:200%} }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .hero-copy {
-      animation: fadeUp 0.7s 0.1s ease both;
-    }
-    .hero-label {
-      font-family: var(--font-mono); font-size: 0.68rem;
-      letter-spacing: 0.22em; color: var(--accent);
-      margin-bottom: 20px;
-      text-shadow: 0 0 12px rgba(212,160,23,0.5);
-    }
-    .hero-title {
-      font-size: clamp(3rem, 5vw, 5rem);
-      font-weight: 800; line-height: 0.93;
-      letter-spacing: -0.03em; margin-bottom: 24px;
-    }
-    .hero-title em {
-      font-style: normal;
-      background: linear-gradient(135deg, #d4a017, #ffe066);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .hero-desc {
-      font-family: var(--font-mono); font-size: 0.82rem;
-      color: var(--muted); line-height: 1.7; max-width: 380px;
-    }
+html { color-scheme: dark; scroll-behavior: smooth; }
 
-    /* Stats row */
-    .stats {
-      display: flex; gap: 32px;
-      animation: fadeUp 0.7s 0.2s ease both;
-    }
-    .stat { display: flex; flex-direction: column; gap: 4px; }
-    .stat-val {
-      font-family: var(--font-mono); font-size: 1.4rem;
-      font-weight: 500; color: var(--text);
-    }
-    .stat-val span { color: var(--accent); }
-    .stat-label {
-      font-family: var(--font-mono); font-size: 0.65rem;
-      letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase;
-    }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tracking);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01" 1;
+}
 
-    /* Ticker strip at bottom of left */
-    .mini-ticker {
-      display: flex; gap: 0; overflow: hidden;
-      border-top: 1px solid var(--border);
-      padding-top: 20px;
-      animation: fadeUp 0.7s 0.3s ease both;
-    }
-    .mini-ticker-inner {
-      display: flex; gap: 0;
-      animation: ticker 20s linear infinite;
-      white-space: nowrap; font-family: var(--font-mono); font-size: 0.72rem;
-    }
-    .t-item {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 0 24px; color: var(--muted);
-      border-right: 1px solid var(--border);
-    }
-    .t-name { color: var(--text); font-weight: 600; }
-    .t-up   { color: var(--up); }
-    .t-dn   { color: var(--down); }
-    @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+a { color: inherit; text-decoration: none; }
 
-    /* ── Right panel — Auth form ── */
-    .right {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 48px;
-      position: relative;
-    }
+h1, h2, h3 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
 
-    .auth-box {
-      width: 100%; max-width: 400px;
-      animation: fadeUp 0.7s 0.15s ease both;
-    }
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
 
-    .auth-tabs {
-      display: flex; gap: 2px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px; padding: 4px;
-      margin-bottom: 36px;
-    }
-    .auth-tab {
-      flex: 1; padding: 10px;
-      background: transparent; border: none;
-      color: var(--muted); font-family: var(--font-head);
-      font-size: 0.85rem; font-weight: 700;
-      border-radius: 9px; cursor: pointer;
-      transition: all 0.2s; letter-spacing: 0.04em;
-    }
-    .auth-tab.active {
-      background: var(--surface2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-    }
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
 
-    /* Form panels */
-    .form-panel { display: none; flex-direction: column; gap: 16px; }
-    .form-panel.active { display: flex; }
+.up { color: var(--green); }
+.down { color: var(--red); }
 
-    .form-title {
-      font-size: 1.6rem; font-weight: 800;
-      letter-spacing: -0.02em; margin-bottom: 4px;
-    }
-    .form-sub {
-      font-family: var(--font-mono); font-size: 0.78rem;
-      color: var(--muted); margin-bottom: 8px;
-    }
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
 
-    .field { display: flex; flex-direction: column; gap: 8px; }
-    .field label {
-      font-family: var(--font-mono); font-size: 0.7rem;
-      letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase;
-    }
+/* focus visibility */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--blue-bright);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
 
-    .field-wrap {
-      position: relative; display: flex; align-items: center;
-    }
-    .field-icon {
-      position: absolute; left: 14px;
-      color: var(--muted); font-size: 0.9rem; pointer-events: none;
-    }
-    .field input {
-      width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text); font-family: var(--font-mono);
-      font-size: 0.88rem; padding: 13px 14px 13px 40px;
-      border-radius: 10px; outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .field input::placeholder { color: var(--muted); }
-    .field input:focus {
-      border-color: rgba(212,160,23,0.5);
-      box-shadow: 0 0 0 3px rgba(212,160,23,0.08);
-    }
+/* ==========================================================================
+   Nav
+   ========================================================================== */
 
-    .forgot {
-      font-family: var(--font-mono); font-size: 0.72rem;
-      color: var(--muted); text-decoration: none;
-      text-align: right; display: block; margin-top: -6px;
-      transition: color 0.2s;
-    }
-    .forgot:hover { color: var(--accent); }
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(10, 10, 11, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-subtle);
+}
 
-    .submit-btn {
-      width: 100%; padding: 15px;
-      background: linear-gradient(135deg, #d4a017, #b8860b);
-      color: #000; font-family: var(--font-head);
-      font-size: 0.92rem; font-weight: 800;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      border: none; border-radius: 12px; cursor: pointer;
-      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
-      box-shadow: 0 4px 24px rgba(212,160,23,0.3);
-      position: relative; overflow: hidden;
-      margin-top: 4px;
-    }
-    .submit-btn::after {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-      transform: translateX(-100%);
-      transition: transform 0.4s;
-    }
-    .submit-btn:hover::after { transform: translateX(100%); }
-    .submit-btn:hover  { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 32px rgba(212,160,23,0.4); }
-    .submit-btn:active { transform: translateY(0); }
+.nav-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 
-    .divider {
-      display: flex; align-items: center; gap: 12px;
-      font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted);
-    }
-    .divider::before, .divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
-    }
+.logo {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-    /* OAuth buttons */
-    .oauth-row { display: flex; gap: 10px; }
-    .oauth-btn {
-      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
-      background: var(--surface); border: 1px solid var(--border);
-      color: var(--text); font-family: var(--font-head);
-      font-size: 0.8rem; font-weight: 600;
-      padding: 12px; border-radius: 10px; cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .oauth-btn:hover { border-color: rgba(212,160,23,0.3); background: var(--surface2); }
-    .oauth-icon { font-size: 1.1rem; }
+.logo-mark {
+  width: 8px;
+  height: 8px;
+  background: var(--blue);
+  border-radius: 2px;
+  display: inline-block;
+}
 
-    /* Terms */
-    .terms {
-      font-family: var(--font-mono); font-size: 0.68rem;
-      color: var(--muted); text-align: center; line-height: 1.6; margin-top: 4px;
-    }
-    .terms a { color: var(--accent); text-decoration: none; }
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
 
-    /* Password strength */
-    .strength-bar {
-      height: 3px; border-radius: 2px;
-      background: var(--border); overflow: hidden; margin-top: -6px;
-    }
-    .strength-fill {
-      height: 100%; width: 0%; border-radius: 2px;
-      transition: width 0.3s, background 0.3s;
-    }
+.nav-links a {
+  font-size: 14px;
+  color: var(--text-dim);
+  transition: color 0.15s ease;
+}
 
-    /* Success state */
-    .success-msg {
-      display: none; flex-direction: column; align-items: center;
-      gap: 16px; text-align: center; padding: 24px 0;
-    }
-    .success-icon {
-      width: 64px; height: 64px; border-radius: 50%;
-      background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.8rem;
-      animation: scaleIn 0.4s ease;
-    }
-    @keyframes scaleIn { from{transform:scale(0)} to{transform:scale(1)} }
-    .success-title { font-size: 1.3rem; font-weight: 700; }
-    .success-sub { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+.nav-links a:hover,
+.nav-links a.active {
+  color: var(--text);
+}
 
-    /* Enter animation */
-    @keyframes fadeUp {
-      from { opacity:0; transform:translateY(20px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: var(--tracking);
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
 
-    /* Responsive */
-    @media (max-width: 800px) {
-      body { overflow-y: auto; }
-      .page { grid-template-columns: 1fr; height: auto; }
-      .left { display: none; }
-      .right { min-height: 100vh; padding: 40px 28px; }
-    }
-  </style>
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--blue-bright); }
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn-ghost:hover { border-color: var(--text-dim); }
+
+/* ==========================================================================
+   Ticker strip — signature element, shared across pages
+   ========================================================================== */
+
+.ticker-strip {
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+
+.ticker-strip::before,
+.ticker-strip::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 48px;
+  z-index: 2;
+  pointer-events: none;
+}
+.ticker-strip::before { left: 0; background: linear-gradient(90deg, var(--bg-elevated), transparent); }
+.ticker-strip::after { right: 0; background: linear-gradient(270deg, var(--bg-elevated), transparent); }
+
+.ticker-track {
+  display: inline-flex;
+  align-items: center;
+  animation: ticker-scroll 32s linear infinite;
+}
+
+.ticker-strip:hover .ticker-track { animation-play-state: paused; }
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 10px 22px;
+  border-right: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+}
+
+.ticker-item .sym { color: var(--text); font-weight: 600; }
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+  .ticker-strip { overflow-x: auto; }
+}
+
+/* ==========================================================================
+   Hero (landing)
+   ========================================================================== */
+
+.hero {
+  padding: 96px 24px 80px;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue-bright);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.hero-eyebrow::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(22, 199, 132, 0.15);
+}
+
+.hero h1 {
+  font-size: clamp(40px, 6vw, 68px);
+  max-width: 16ch;
+  margin-bottom: 24px;
+}
+
+.hero p.lede {
+  font-size: 18px;
+  color: var(--text-dim);
+  max-width: 52ch;
+  line-height: 1.6;
+  margin-bottom: 36px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 64px;
+}
+
+.hero-actions .btn-primary,
+.hero-actions .btn-ghost {
+  font-size: 15px;
+  padding: 12px 22px;
+}
+
+/* feature row */
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.feature-card {
+  background: var(--bg-elevated);
+  padding: 28px;
+}
+
+.feature-card .label { margin-bottom: 14px; }
+
+.feature-card h3 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.feature-card p {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* how it works */
+
+.process {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 80px 24px;
+}
+
+.process-head {
+  margin-bottom: 40px;
+}
+
+.process-head h2 {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.process-head p { color: var(--text-dim); font-size: 15px; }
+
+.process-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+
+.process-step {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.process-step .num {
+  font-family: var(--font-mono);
+  color: var(--blue-bright);
+  font-size: 13px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.process-step h3 { font-size: 16px; margin-bottom: 8px; }
+.process-step p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+
+footer {
+  border-top: 1px solid var(--border-subtle);
+  padding: 28px 24px;
+}
+
+.footer-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+footer a:hover { color: var(--text-dim); }
+
+/* ==========================================================================
+   Dashboard
+   ========================================================================== */
+
+.dash-main {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+.dash-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.dash-head h1 { font-size: 22px; }
+
+.dash-head .updated {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+
+.summary-card {
+  background: var(--bg-elevated);
+  padding: 22px 24px;
+}
+
+.summary-card .label { margin-bottom: 12px; }
+
+.summary-card .value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.summary-card .delta {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.panel-head h2 { font-size: 15px; font-weight: 600; }
+
+.holdings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.holdings-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.holdings-table td {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+.holdings-table tr:last-child td { border-bottom: none; }
+.holdings-table tbody tr { transition: background 0.12s ease; }
+.holdings-table tbody tr:hover { background: var(--bg-elevated-2); }
+
+.asset-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.asset-icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.asset-name { font-size: 13.5px; color: var(--text-dim); }
+
+td.mono-num { font-family: var(--font-mono); }
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.alert-row {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.alert-row:last-child { border-bottom: none; }
+
+.alert-condition {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.alert-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.badge-active { background: rgba(22, 199, 132, 0.12); color: var(--green); }
+.badge-armed { background: rgba(47, 111, 237, 0.14); color: var(--blue-bright); }
+
+.empty-note {
+  padding: 22px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 880px) {
+  .nav-links { display: none; }
+  .feature-grid,
+  .process-list { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .panel-grid { grid-template-columns: 1fr; }
+  .holdings-table { display: block; overflow-x: auto; }
+}
+
+@media (max-width: 520px) {
+  .summary-grid { grid-template-columns: 1fr; }
+  .hero { padding: 64px 20px 56px; }
+}
+
+</style>
 </head>
 <body>
 
-  <canvas id="flow-canvas"></canvas>
-  <div class="noise"></div>
-
-  <div class="page">
-
-    <!-- LEFT: Branding -->
-    <div class="left">
-      <div class="left-glow"></div>
-
-      <div class="logo">
-        <span class="logo-mark">⬡</span>
-        <span class="logo-text">VaultX</span>
-      </div>
-
-      <div class="hero-copy">
-        <div class="hero-label">LIVE MARKET INTELLIGENCE</div>
-        <h1 class="hero-title">Your crypto.<br /><em>Your vault.</em></h1>
-        <p class="hero-desc">
-          Real-time prices across 10,000+ coins. Portfolio tracking,
-          price alerts, and market intelligence — all in one place.
-        </p>
-      </div>
-
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-val">10<span>K+</span></div>
-          <div class="stat-label">Coins Tracked</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val">37<span>+</span></div>
-          <div class="stat-label">Currencies</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val">30<span>s</span></div>
-          <div class="stat-label">Refresh Rate</div>
-        </div>
-      </div>
-
-      <div class="mini-ticker">
-        <div class="mini-ticker-inner" id="ticker">
-          <span class="t-item"><span class="t-name">BTC</span><span>$77,396</span><span class="t-up">▲ 1.06%</span></span>
-          <span class="t-item"><span class="t-name">ETH</span><span>$2,130</span><span class="t-dn">▼ 0.18%</span></span>
-          <span class="t-item"><span class="t-name">SOL</span><span>$84.90</span><span class="t-dn">▼ 0.51%</span></span>
-          <span class="t-item"><span class="t-name">BNB</span><span>$643.84</span><span class="t-up">▲ 0.30%</span></span>
-          <span class="t-item"><span class="t-name">ADA</span><span>$0.249</span><span class="t-dn">▼ 0.77%</span></span>
-          <span class="t-item"><span class="t-name">DOGE</span><span>$0.103</span><span class="t-dn">▼ 0.71%</span></span>
-          <span class="t-item"><span class="t-name">BTC</span><span>$77,396</span><span class="t-up">▲ 1.06%</span></span>
-          <span class="t-item"><span class="t-name">ETH</span><span>$2,130</span><span class="t-dn">▼ 0.18%</span></span>
-          <span class="t-item"><span class="t-name">SOL</span><span>$84.90</span><span class="t-dn">▼ 0.51%</span></span>
-          <span class="t-item"><span class="t-name">BNB</span><span>$643.84</span><span class="t-up">▲ 0.30%</span></span>
-          <span class="t-item"><span class="t-name">ADA</span><span>$0.249</span><span class="t-dn">▼ 0.77%</span></span>
-          <span class="t-item"><span class="t-name">DOGE</span><span>$0.103</span><span class="t-dn">▼ 0.71%</span></span>
-        </div>
-      </div>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="landing.html" class="logo"><span class="logo-mark"></span>VAULTX</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="https://github.com/jasonyx-cyber" target="_blank" rel="noopener">GitHub</a>
     </div>
+    <a href="index.html" class="btn btn-primary">Open dashboard</a>
+  </div>
+</nav>
 
-    <!-- RIGHT: Auth -->
-    <div class="right">
-      <div class="auth-box">
+<div class="ticker-strip">
+  <div class="ticker-track"><!-- filled by ticker.js --></div>
+</div>
 
-        <!-- Tabs -->
-        <div class="auth-tabs">
-          <button class="auth-tab active" data-panel="signin">Sign In</button>
-          <button class="auth-tab" data-panel="signup">Create Account</button>
-        </div>
-
-        <!-- Sign In -->
-        <div class="form-panel active" id="panel-signin">
-          <div class="form-title">Welcome back</div>
-          <div class="form-sub">Sign in to access your vault</div>
-
-          <div class="field">
-            <label>Email</label>
-            <div class="field-wrap">
-              <span class="field-icon">✉</span>
-              <input type="email" placeholder="you@example.com" autocomplete="email" />
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Password</label>
-            <div class="field-wrap">
-              <span class="field-icon">🔒</span>
-              <input type="password" placeholder="Your password" autocomplete="current-password" />
-            </div>
-          </div>
-
-          <a href="#" class="forgot">Forgot password?</a>
-
-          <button class="submit-btn" id="signin-btn">Sign In →</button>
-
-          <div class="divider">or continue with</div>
-
-          <div class="oauth-row">
-            <button class="oauth-btn"><span class="oauth-icon">G</span> Google</button>
-            <button class="oauth-btn"><span class="oauth-icon">🍎</span> Apple</button>
-          </div>
-        </div>
-
-        <!-- Sign Up -->
-        <div class="form-panel" id="panel-signup">
-          <div class="form-title">Join VaultX</div>
-          <div class="form-sub">Create your free account in seconds</div>
-
-          <div class="field">
-            <label>Full Name</label>
-            <div class="field-wrap">
-              <span class="field-icon">👤</span>
-              <input type="text" placeholder="Your name" autocomplete="name" />
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Email</label>
-            <div class="field-wrap">
-              <span class="field-icon">✉</span>
-              <input type="email" placeholder="you@example.com" autocomplete="email" />
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Password</label>
-            <div class="field-wrap">
-              <span class="field-icon">🔒</span>
-              <input type="password" id="signup-password" placeholder="Min. 8 characters" autocomplete="new-password" />
-            </div>
-            <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
-          </div>
-
-          <button class="submit-btn" id="signup-btn">Create Account →</button>
-
-          <div class="divider">or sign up with</div>
-
-          <div class="oauth-row">
-            <button class="oauth-btn"><span class="oauth-icon">G</span> Google</button>
-            <button class="oauth-btn"><span class="oauth-icon">🍎</span> Apple</button>
-          </div>
-
-          <p class="terms">
-            By creating an account you agree to our
-            <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
-          </p>
-        </div>
-
-        <!-- Success state (shown after submit) -->
-        <div class="success-msg" id="success-msg">
-          <div class="success-icon">✓</div>
-          <div class="success-title">You're in!</div>
-          <div class="success-sub">Redirecting to your vault…</div>
-        </div>
-
-      </div>
-    </div>
+<section class="hero">
+  <div class="hero-eyebrow">Live data via CoinGecko</div>
+  <h1>Your portfolio, without the noise.</h1>
+  <p class="lede">
+    VaultX tracks your holdings against live prices, flags the moves that
+    actually matter, and stays out of your way otherwise. No charts you
+    didn't ask for, no feed to scroll.
+  </p>
+  <div class="hero-actions">
+    <a href="index.html" class="btn btn-primary">Open dashboard</a>
+    <a href="#how" class="btn btn-ghost">See how it works</a>
   </div>
 
-  <script>
-    /* ── Flowing lines (same as dashboard) ── */
-    (function () {
-      const canvas = document.getElementById('flow-canvas');
-      const ctx    = canvas.getContext('2d');
-      const COLORS = [
-        { r:255, g:200, b: 30 }, { r:  0, g:245, b:255 },
-        { r:180, g: 80, b:255 }, { r:  0, g:255, b:160 },
-        { r:255, g: 50, b:100 }, { r: 80, g:180, b:255 },
-        { r:255, g:120, b: 30 },
-      ];
-      let W, H, lines;
-      function rand(a,b){ return a + Math.random()*(b-a); }
+  <div class="feature-grid" id="features">
+    <div class="feature-card">
+      <div class="label">Pricing</div>
+      <h3>Live, not stale</h3>
+      <p>Prices pulled straight from CoinGecko, refreshed on a schedule you control — no manual lookups.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">Tracking</div>
+      <h3>Holdings, not hype</h3>
+      <p>Every position you hold, valued in real time, sitting in one table instead of six tabs.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">Alerts</div>
+      <h3>Told, not glued</h3>
+      <p>Set a threshold per asset. VaultX watches it so you don't have to refresh the page yourself.</p>
+    </div>
+  </div>
+</section>
 
-      class FlowLine {
-        constructor(){ this.reset(true); }
-        reset(initial){
-          this.color = COLORS[Math.floor(Math.random()*COLORS.length)];
-          this.width = rand(0.6, 2.2);
-          this.speed = rand(0.18, 0.55);
-          this.alpha = rand(0.35, 0.75);
-          this.freq  = rand(0.0008, 0.003);
-          this.amp   = rand(40, 160);
-          this.phase = rand(0, Math.PI*2);
-          this.offset= rand(0, H);
-          this.x     = initial ? rand(0,W) : -20;
-        }
-        draw(){
-          const {r,g,b} = this.color;
-          ctx.beginPath();
-          ctx.lineWidth = this.width;
-          const steps = Math.ceil(W/4);
-          for(let i=0;i<=steps;i++){
-            const px = (i/steps)*W;
-            const py = this.offset
-              + Math.sin(px*this.freq*2 + this.phase + this.x*0.001)*this.amp
-              + Math.sin(px*this.freq*0.7 + this.phase*1.3)*(this.amp*0.4);
-            i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
-          }
-          const grad = ctx.createLinearGradient(0,0,W,0);
-          grad.addColorStop(0,  `rgba(${r},${g},${b},0)`);
-          grad.addColorStop(0.3,`rgba(${r},${g},${b},${this.alpha})`);
-          grad.addColorStop(0.7,`rgba(${r},${g},${b},${this.alpha})`);
-          grad.addColorStop(1,  `rgba(${r},${g},${b},0)`);
-          ctx.strokeStyle = grad;
-          ctx.stroke();
-          this.phase += this.speed*0.012;
-          this.x     += this.speed;
-          if(this.x > W+20) this.reset(false);
-        }
-      }
+<section class="process" id="how">
+  <div class="process-head">
+    <h2>Three steps, in order</h2>
+    <p>Setup is linear — each step depends on the one before it.</p>
+  </div>
+  <div class="process-list">
+    <div class="process-step">
+      <span class="num mono">01</span>
+      <h3>Add your holdings</h3>
+      <p>Enter what you hold and at what cost basis. VaultX does the valuation from there.</p>
+    </div>
+    <div class="process-step">
+      <span class="num mono">02</span>
+      <h3>Track in real time</h3>
+      <p>Your dashboard updates against live CoinGecko prices — current value, 24h high/low, daily change.</p>
+    </div>
+    <div class="process-step">
+      <span class="num mono">03</span>
+      <h3>Get alerted</h3>
+      <p>Set a price threshold per asset and VaultX flags it the moment it's crossed.</p>
+    </div>
+  </div>
+</section>
 
-      function init(){
-        W = canvas.width  = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-        lines = Array.from({length: Math.floor(W/80)+8}, ()=>new FlowLine());
-      }
-      function animate(){
-        ctx.clearRect(0,0,W,H);
-        lines.forEach(l=>l.draw());
-        requestAnimationFrame(animate);
-      }
-      window.addEventListener('resize', init);
-      init(); animate();
-    })();
+<footer>
+  <div class="footer-inner">
+    <span>VaultX — built by Jason</span>
+    <a href="https://github.com/jasonyx-cyber" target="_blank" rel="noopener">github.com/jasonyx-cyber</a>
+  </div>
+</footer>
 
-    /* ── Tab switching ── */
-    document.querySelectorAll('.auth-tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
-      });
-    });
+<script>
+// VaultX — shared frontend behavior
+// Ticker data is placeholder. Wire this up to your existing CoinGecko fetch
+// (the one your Flask backend already calls) and replace TICKER_DATA with
+// the live response — keep the same {sym, price, change} shape and the
+// rendering below will keep working as-is.
 
-    /* ── Password strength ── */
-    const pwInput    = document.getElementById('signup-password');
-    const strengthEl = document.getElementById('strength-fill');
-    const COLORS_STR = ['#ff3d5a','#ff7a30','#d4a017','#00e5a0'];
+const TICKER_DATA = [
+  { sym: "BTC", price: "67,214.30", change: 2.41 },
+  { sym: "ETH", price: "3,481.92", change: -1.08 },
+  { sym: "SOL", price: "172.55", change: 5.03 },
+  { sym: "ADA", price: "0.612", change: -0.42 },
+  { sym: "XRP", price: "0.581", change: 1.17 },
+  { sym: "DOGE", price: "0.187", change: -3.26 },
+  { sym: "AVAX", price: "41.08", change: 0.88 },
+];
 
-    pwInput?.addEventListener('input', () => {
-      const v = pwInput.value;
-      let score = 0;
-      if (v.length >= 8)              score++;
-      if (/[A-Z]/.test(v))            score++;
-      if (/[0-9]/.test(v))            score++;
-      if (/[^A-Za-z0-9]/.test(v))     score++;
-      strengthEl.style.width      = `${(score/4)*100}%`;
-      strengthEl.style.background = COLORS_STR[score-1] || 'transparent';
-    });
+function renderTicker() {
+  const track = document.querySelector(".ticker-track");
+  if (!track) return;
 
-    /* ── Sign in submit ── */
-    document.getElementById('signin-btn').addEventListener('click', async function() {
-      const btn = this;
-      const panel = document.getElementById('panel-signin');
-      const email = panel.querySelector('input[type="email"]').value.trim();
-      const password = panel.querySelector('input[type="password"]').value;
-      if (!email || !password) { alert('Email and password required.'); return; }
-      btn.textContent = 'Signing in…'; btn.disabled = true;
-      try {
-        const res = await fetch('/auth/signin', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        const j = await res.json();
-        if (res.ok && j.status === 'ok') {
-          panel.style.display = 'none';
-          document.getElementById('success-msg').style.display = 'flex';
-          setTimeout(() => { window.location.href = j.redirect || '/'; }, 900);
-        } else {
-          alert(j.message || 'Sign in failed.');
-        }
-      } catch (err) { alert('Network error: ' + err.message); }
-      btn.textContent = 'Sign In →'; btn.disabled = false;
-    });
+  const itemHTML = TICKER_DATA.map((c) => {
+    const dirClass = c.change >= 0 ? "up" : "down";
+    const arrow = c.change >= 0 ? "▲" : "▼";
+    return `
+      <span class="ticker-item">
+        <span class="sym">${c.sym}</span>
+        <span>$${c.price}</span>
+        <span class="${dirClass}">${arrow} ${Math.abs(c.change).toFixed(2)}%</span>
+      </span>`;
+  }).join("");
 
-    /* ── Sign up submit ── */
-    document.getElementById('signup-btn').addEventListener('click', async function() {
-      const btn = this;
-      const panel = document.getElementById('panel-signup');
-      const name = panel.querySelector('input[placeholder="Your name"]').value.trim();
-      const email = panel.querySelector('input[type="email"]').value.trim();
-      const password = panel.querySelector('#signup-password').value;
-      if (!email || !password) { alert('Email and password required.'); return; }
-      if (password.length < 8) { alert('Password must be at least 8 characters.'); return; }
-      btn.textContent = 'Creating account…'; btn.disabled = true;
-      try {
-        const res = await fetch('/auth/signup', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, password })
-        });
-        const j = await res.json();
-        if (res.ok && j.status === 'ok') {
-          panel.style.display = 'none';
-          document.getElementById('success-msg').style.display = 'flex';
-          setTimeout(() => { window.location.href = j.redirect || '/'; }, 900);
-        } else {
-          alert(j.message || 'Sign up failed.');
-        }
-      } catch (err) { alert('Network error: ' + err.message); }
-      btn.textContent = 'Create Account →'; btn.disabled = false;
-    });
-  </script>
+  // duplicated once so the 50%-translateX loop is seamless
+  track.innerHTML = itemHTML + itemHTML;
+}
+
+function renderTimestamp() {
+  const el = document.querySelector("[data-updated]");
+  if (!el) return;
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  el.textContent = `Updated ${time}`;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderTicker();
+  renderTimestamp();
+});
+
+</script>
 </body>
 </html>

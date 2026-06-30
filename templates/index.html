@@ -1,320 +1,785 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>VaultX</title>
-  <link rel="manifest" href="/static/manifest.json" />
-  <meta name="theme-color" content="#020408" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VaultX — Dashboard</title>
+<style>
+/* ==========================================================================
+   VaultX — design tokens
+   Monotone base (near-black / off-white) + single blue accent.
+   Red/green pulled from CoinGecko's own ticker palette (#EA3943 / #16C784)
+   since that's the actual source of the price data this UI displays.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* surfaces */
+  --bg: #0a0a0b;
+  --bg-elevated: #131316;
+  --bg-elevated-2: #1b1b1f;
+  --border: #28282c;
+  --border-subtle: #1c1c20;
+
+  /* text */
+  --text: #f2f2f0;
+  --text-dim: #8b8b90;
+  --text-faint: #5c5c61;
+
+  /* accent */
+  --blue: #2f6fed;
+  --blue-bright: #5b8fff;
+  --blue-dim: #1e4fb8;
+
+  /* semantic (CoinGecko-aligned) */
+  --green: #16c784;
+  --red: #ea3943;
+
+  /* type */
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --tracking: -0.1px;
+
+  /* layout */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --max-width: 1160px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { color-scheme: dark; scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tracking);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01" 1;
+}
+
+a { color: inherit; text-decoration: none; }
+
+h1, h2, h3 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.up { color: var(--green); }
+.down { color: var(--red); }
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* focus visibility */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--blue-bright);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Nav
+   ========================================================================== */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(10, 10, 11, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.nav-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-mark {
+  width: 8px;
+  height: 8px;
+  background: var(--blue);
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.nav-links a {
+  font-size: 14px;
+  color: var(--text-dim);
+  transition: color 0.15s ease;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+  color: var(--text);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: var(--tracking);
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--blue-bright); }
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn-ghost:hover { border-color: var(--text-dim); }
+
+/* ==========================================================================
+   Ticker strip — signature element, shared across pages
+   ========================================================================== */
+
+.ticker-strip {
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+
+.ticker-strip::before,
+.ticker-strip::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 48px;
+  z-index: 2;
+  pointer-events: none;
+}
+.ticker-strip::before { left: 0; background: linear-gradient(90deg, var(--bg-elevated), transparent); }
+.ticker-strip::after { right: 0; background: linear-gradient(270deg, var(--bg-elevated), transparent); }
+
+.ticker-track {
+  display: inline-flex;
+  align-items: center;
+  animation: ticker-scroll 32s linear infinite;
+}
+
+.ticker-strip:hover .ticker-track { animation-play-state: paused; }
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 10px 22px;
+  border-right: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+}
+
+.ticker-item .sym { color: var(--text); font-weight: 600; }
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+  .ticker-strip { overflow-x: auto; }
+}
+
+/* ==========================================================================
+   Hero (landing)
+   ========================================================================== */
+
+.hero {
+  padding: 96px 24px 80px;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue-bright);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.hero-eyebrow::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(22, 199, 132, 0.15);
+}
+
+.hero h1 {
+  font-size: clamp(40px, 6vw, 68px);
+  max-width: 16ch;
+  margin-bottom: 24px;
+}
+
+.hero p.lede {
+  font-size: 18px;
+  color: var(--text-dim);
+  max-width: 52ch;
+  line-height: 1.6;
+  margin-bottom: 36px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 64px;
+}
+
+.hero-actions .btn-primary,
+.hero-actions .btn-ghost {
+  font-size: 15px;
+  padding: 12px 22px;
+}
+
+/* feature row */
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.feature-card {
+  background: var(--bg-elevated);
+  padding: 28px;
+}
+
+.feature-card .label { margin-bottom: 14px; }
+
+.feature-card h3 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.feature-card p {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* how it works */
+
+.process {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 80px 24px;
+}
+
+.process-head {
+  margin-bottom: 40px;
+}
+
+.process-head h2 {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.process-head p { color: var(--text-dim); font-size: 15px; }
+
+.process-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+
+.process-step {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.process-step .num {
+  font-family: var(--font-mono);
+  color: var(--blue-bright);
+  font-size: 13px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.process-step h3 { font-size: 16px; margin-bottom: 8px; }
+.process-step p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+
+footer {
+  border-top: 1px solid var(--border-subtle);
+  padding: 28px 24px;
+}
+
+.footer-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+footer a:hover { color: var(--text-dim); }
+
+/* ==========================================================================
+   Dashboard
+   ========================================================================== */
+
+.dash-main {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+.dash-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.dash-head h1 { font-size: 22px; }
+
+.dash-head .updated {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+
+.summary-card {
+  background: var(--bg-elevated);
+  padding: 22px 24px;
+}
+
+.summary-card .label { margin-bottom: 12px; }
+
+.summary-card .value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.summary-card .delta {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.panel-head h2 { font-size: 15px; font-weight: 600; }
+
+.holdings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.holdings-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.holdings-table td {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+.holdings-table tr:last-child td { border-bottom: none; }
+.holdings-table tbody tr { transition: background 0.12s ease; }
+.holdings-table tbody tr:hover { background: var(--bg-elevated-2); }
+
+.asset-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.asset-icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.asset-name { font-size: 13.5px; color: var(--text-dim); }
+
+td.mono-num { font-family: var(--font-mono); }
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.alert-row {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.alert-row:last-child { border-bottom: none; }
+
+.alert-condition {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.alert-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.badge-active { background: rgba(22, 199, 132, 0.12); color: var(--green); }
+.badge-armed { background: rgba(47, 111, 237, 0.14); color: var(--blue-bright); }
+
+.empty-note {
+  padding: 22px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 880px) {
+  .nav-links { display: none; }
+  .feature-grid,
+  .process-list { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .panel-grid { grid-template-columns: 1fr; }
+  .holdings-table { display: block; overflow-x: auto; }
+}
+
+@media (max-width: 520px) {
+  .summary-grid { grid-template-columns: 1fr; }
+  .hero { padding: 64px 20px 56px; }
+}
+
+</style>
 </head>
 <body>
 
-  <canvas id="flow-canvas"></canvas>
-  <div class="noise"></div>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="landing.html" class="logo"><span class="logo-mark"></span>VAULTX</a>
+    <div class="nav-links">
+      <a href="index.html" class="active">Dashboard</a>
+      <a href="landing.html#features">Features</a>
+      <a href="https://github.com/jasonyx-cyber" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <a href="landing.html" class="btn btn-ghost">Sign out</a>
+  </div>
+</nav>
 
-  <!-- ALERT TOAST -->
-  <div id="alert-toast" class="alert-toast" style="display:none;">
-    <span class="alert-toast-icon">🔔</span>
-    <span id="alert-toast-msg"></span>
-    <button id="alert-toast-close">✕</button>
+<div class="ticker-strip">
+  <div class="ticker-track"><!-- filled by ticker.js --></div>
+</div>
+
+<main class="dash-main">
+  <div class="dash-head">
+    <h1>Portfolio overview</h1>
+    <span class="updated mono" data-updated>Updated —</span>
   </div>
 
-  <header>
-    <div class="logo">
-      <span class="logo-mark">⬡</span>
-      <span class="logo-text">VaultX</span>
+  <!-- Summary cards: replace these four values with whatever your
+       app.py route passes in (e.g. via Jinja {{ total_value }} etc). -->
+  <section class="summary-grid">
+    <div class="summary-card">
+      <div class="label">Total balance</div>
+      <div class="value mono">$24,318.06</div>
+      <div class="delta up mono">▲ 3.12% today</div>
     </div>
-    <div class="header-right">
-      <div class="live-pill">
-        <span class="pulse-dot"></span>
-        <span id="live-label">LIVE</span>
-      </div>
-      <div class="user-pill">
-        <span class="user-avatar">{{ user_name[0].upper() if user_name else '' }}</span>
-        <span class="user-name">{{ user_name }}</span>
-        <a href="{{ url_for('auth_signout') }}" class="logout-btn" title="Sign out">⏻</a>
-      </div>
-      <div id="refresh-countdown" class="refresh-countdown">30s</div>
-      <div class="currency-select-wrap">
-        <select id="currency-select" class="currency-select">
-          <optgroup label="Popular">
-            <option value="usd" selected>🇺🇸 USD</option>
-            <option value="eur">🇪🇺 EUR</option>
-            <option value="gbp">🇬🇧 GBP</option>
-            <option value="jpy">🇯🇵 JPY</option>
-            <option value="cny">🇨🇳 CNY</option>
-            <option value="inr">🇮🇳 INR</option>
-            <option value="ngn">🇳🇬 NGN</option>
-            <option value="cad">🇨🇦 CAD</option>
-            <option value="aud">🇦🇺 AUD</option>
-            <option value="chf">🇨🇭 CHF</option>
-          </optgroup>
-          <optgroup label="Africa &amp; Middle East">
-            <option value="zar">🇿🇦 ZAR</option>
-            <option value="aed">🇦🇪 AED</option>
-            <option value="sar">🇸🇦 SAR</option>
-            <option value="egp">🇪🇬 EGP</option>
-            <option value="ghs">🇬🇭 GHS</option>
-            <option value="kes">🇰🇪 KES</option>
-          </optgroup>
-          <optgroup label="Asia Pacific">
-            <option value="krw">🇰🇷 KRW</option>
-            <option value="sgd">🇸🇬 SGD</option>
-            <option value="hkd">🇭🇰 HKD</option>
-            <option value="myr">🇲🇾 MYR</option>
-            <option value="idr">🇮🇩 IDR</option>
-            <option value="php">🇵🇭 PHP</option>
-            <option value="thb">🇹🇭 THB</option>
-            <option value="vnd">🇻🇳 VND</option>
-            <option value="pkr">🇵🇰 PKR</option>
-            <option value="bdt">🇧🇩 BDT</option>
-          </optgroup>
-          <optgroup label="Americas">
-            <option value="brl">🇧🇷 BRL</option>
-            <option value="mxn">🇲🇽 MXN</option>
-            <option value="ars">🇦🇷 ARS</option>
-            <option value="clp">🇨🇱 CLP</option>
-            <option value="cop">🇨🇴 COP</option>
-          </optgroup>
-          <optgroup label="Europe">
-            <option value="sek">🇸🇪 SEK</option>
-            <option value="nok">🇳🇴 NOK</option>
-            <option value="dkk">🇩🇰 DKK</option>
-            <option value="pln">🇵🇱 PLN</option>
-            <option value="try">🇹🇷 TRY</option>
-            <option value="rub">🇷🇺 RUB</option>
-            <option value="uah">🇺🇦 UAH</option>
-          </optgroup>
-          <optgroup label="Crypto">
-            <option value="btc">₿ BTC</option>
-            <option value="eth">Ξ ETH</option>
-            <option value="bnb">BNB</option>
-          </optgroup>
-        </select>
-        <span class="select-arrow">▾</span>
-      </div>
+    <div class="summary-card">
+      <div class="label">24h high</div>
+      <div class="value mono up">$25,040.12</div>
     </div>
-  </header>
+    <div class="summary-card">
+      <div class="label">24h low</div>
+      <div class="value mono down">$23,602.88</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Active alerts</div>
+      <div class="value mono">3</div>
+      <div class="delta mono" style="color: var(--text-faint);">2 armed, 1 triggered</div>
+    </div>
+  </section>
 
-  <main>
-    <section class="hero">
-      <div class="hero-label">LIVE MARKET INTELLIGENCE</div>
-      <h1 class="hero-title">Vault<em>X</em></h1>
-      <div class="last-updated">
-        Last updated: <span id="last-updated-time">—</span>
-        <span id="cached-badge" class="badge" style="display:none;">CACHED</span>
+  <div class="panel-grid">
+    <!-- Holdings table: loop your real holdings here in Jinja,
+         keeping the row structure below. -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Holdings</h2>
+        <a href="#" class="btn btn-ghost" style="padding:6px 12px; font-size:13px;">Add asset</a>
       </div>
+      <table class="holdings-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Price</th>
+            <th>24h high</th>
+            <th>24h low</th>
+            <th>24h change</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="asset-cell">
+                <span class="asset-icon" style="background:#f7931a;">B</span>
+                <div>
+                  <div>Bitcoin</div>
+                  <div class="asset-name mono">0.184 BTC</div>
+                </div>
+              </div>
+            </td>
+            <td class="mono-num">$67,214.30</td>
+            <td class="mono-num up">$68,902.10</td>
+            <td class="mono-num down">$65,140.55</td>
+            <td class="mono-num up">▲ 2.41%</td>
+            <td class="mono-num">$12,367.43</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="asset-cell">
+                <span class="asset-icon" style="background:#627eea;">E</span>
+                <div>
+                  <div>Ethereum</div>
+                  <div class="asset-name mono">2.10 ETH</div>
+                </div>
+              </div>
+            </td>
+            <td class="mono-num">$3,481.92</td>
+            <td class="mono-num up">$3,540.00</td>
+            <td class="mono-num down">$3,398.71</td>
+            <td class="mono-num down">▼ 1.08%</td>
+            <td class="mono-num">$7,312.03</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="asset-cell">
+                <span class="asset-icon" style="background:#00ffa3;">S</span>
+                <div>
+                  <div>Solana</div>
+                  <div class="asset-name mono">26.4 SOL</div>
+                </div>
+              </div>
+            </td>
+            <td class="mono-num">$172.55</td>
+            <td class="mono-num up">$178.20</td>
+            <td class="mono-num down">$163.04</td>
+            <td class="mono-num up">▲ 5.03%</td>
+            <td class="mono-num">$4,555.32</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
-    <!-- TICKER -->
-    <section class="ticker-bar-wrap">
-      <div class="ticker-bar">
-        <div class="ticker-inner" id="ticker-inner"></div>
+    <!-- Alerts: loop your alert rules here in Jinja. -->
+    <aside class="panel">
+      <div class="panel-head">
+        <h2>Alerts</h2>
       </div>
-    </section>
-
-    <!-- TABS -->
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="prices">📈 Prices</button>
-      <button class="tab-btn" data-tab="portfolio">💼 Portfolio</button>
-      <button class="tab-btn" data-tab="alerts">🔔 Alerts</button>
-      <button class="tab-btn" data-tab="news">📰 News</button>
-      <button class="tab-btn" data-tab="wallet">🔗 Wallet</button>
-    </div>
-
-    <!-- PRICES TAB -->
-    <div id="tab-prices" class="tab-content active">
-      <div class="toolbar">
-        <section class="coin-search">
-          <input id="coin-search" class="search-input" type="text"
-            placeholder="Add: bitcoin, btc, eth, doge…" autocomplete="off" />
-          <button class="search-btn" id="search-btn">Track</button>
-        </section>
-        <div class="sort-bar">
-          <span class="sort-label">Sort:</span>
-          <button class="sort-btn active" data-sort="default">Default</button>
-          <button class="sort-btn" data-sort="price-desc">Price ↓</button>
-          <button class="sort-btn" data-sort="price-asc">Price ↑</button>
-          <button class="sort-btn" data-sort="change-desc">Gain ↓</button>
-          <button class="sort-btn" data-sort="change-asc">Loss ↓</button>
-          <button class="sort-btn" data-sort="mcap-desc">MCap ↓</button>
+      <div class="alerts-list">
+        <div class="alert-row">
+          <div class="alert-condition mono">BTC ≥ $70,000</div>
+          <div class="alert-meta">
+            <span class="label">Set 2 days ago</span>
+            <span class="badge badge-armed">Armed</span>
+          </div>
         </div>
-      </div>
-      <div id="error-banner" class="error-banner" style="display:none;"></div>
-      <section class="grid" id="prices-grid">
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-      </section>
-    </div>
-
-    <!-- PORTFOLIO TAB -->
-    <div id="tab-portfolio" class="tab-content">
-      <div class="portfolio-header">
-        <div>
-          <div class="portfolio-total-label">TOTAL VALUE</div>
-          <div class="portfolio-total" id="portfolio-total">—</div>
+        <div class="alert-row">
+          <div class="alert-condition mono">ETH ≤ $3,200</div>
+          <div class="alert-meta">
+            <span class="label">Set 5 hours ago</span>
+            <span class="badge badge-armed">Armed</span>
+          </div>
         </div>
-        <div class="portfolio-change" id="portfolio-change"></div>
-      </div>
-      <div id="portfolio-list" class="portfolio-list">
-        <p class="empty-msg">Track some coins first, then add your holdings here.</p>
-      </div>
-    </div>
-
-    <!-- ALERTS TAB -->
-    <div id="tab-alerts" class="tab-content">
-      <div class="alerts-form">
-        <select id="alert-coin" class="currency-select" style="min-width:160px;">
-          <option value="">Select coin…</option>
-        </select>
-        <select id="alert-dir" class="currency-select" style="min-width:120px;">
-          <option value="above">Above</option>
-          <option value="below">Below</option>
-        </select>
-        <input id="alert-price" class="search-input" type="number" placeholder="Target price…" style="max-width:180px;" />
-        <button class="search-btn" id="alert-add-btn">Add Alert</button>
-      </div>
-      <div id="alerts-list" class="alerts-list">
-        <p class="empty-msg">No alerts set. Add one above.</p>
-      </div>
-    </div>
-
-    <!-- NEWS TAB -->
-    <div id="tab-news" class="tab-content">
-      <div id="news-grid" class="news-grid">
-        <div class="skeleton-card" style="height:120px;"></div>
-        <div class="skeleton-card" style="height:120px;"></div>
-        <div class="skeleton-card" style="height:120px;"></div>
-        <div class="skeleton-card" style="height:120px;"></div>
-        <div class="skeleton-card" style="height:120px;"></div>
-        <div class="skeleton-card" style="height:120px;"></div>
-      </div>
-    </div>
-  </main>
-
-  <footer>
-    <span>Data via CoinGecko · Auto-refreshes every 30s</span>
-    <span>VaultX · Built with Flask</span>
-  <!-- WALLET TAB -->
-  <div id="tab-wallet" class="tab-content" style="display:none;">
-    <div class="wallet-section">
-      <div class="wallet-hero">
-        <div class="wallet-hero-icon">🔗</div>
-        <div class="wallet-hero-text">
-          <h2 class="wallet-title">Connect Your Wallet</h2>
-          <p class="wallet-sub">Link your existing crypto wallet to view balances alongside live prices.</p>
-        </div>
-      </div>
-      <div class="wallet-grid" id="wallet-grid">
-        <button class="wallet-btn" data-wallet="metamask">
-          <span class="wallet-btn-icon">🦊</span>
-          <span class="wallet-btn-name">MetaMask</span>
-          <span class="wallet-btn-tag">EVM</span>
-        </button>
-        <button class="wallet-btn" data-wallet="walletconnect">
-          <span class="wallet-btn-icon">🔵</span>
-          <span class="wallet-btn-name">WalletConnect</span>
-          <span class="wallet-btn-tag">Multi-chain</span>
-        </button>
-        <button class="wallet-btn" data-wallet="coinbase">
-          <span class="wallet-btn-icon">🔷</span>
-          <span class="wallet-btn-name">Coinbase Wallet</span>
-          <span class="wallet-btn-tag">EVM</span>
-        </button>
-        <button class="wallet-btn" data-wallet="phantom">
-          <span class="wallet-btn-icon">👻</span>
-          <span class="wallet-btn-name">Phantom</span>
-          <span class="wallet-btn-tag">Solana</span>
-        </button>
-        <button class="wallet-btn" data-wallet="trustwallet">
-          <span class="wallet-btn-icon">🛡️</span>
-          <span class="wallet-btn-name">Trust Wallet</span>
-          <span class="wallet-btn-tag">Multi-chain</span>
-        </button>
-        <button class="wallet-btn" data-wallet="manual">
-          <span class="wallet-btn-icon">✏️</span>
-          <span class="wallet-btn-name">Enter Address</span>
-          <span class="wallet-btn-tag">Any chain</span>
-        </button>
-      </div>
-
-      <!-- Manual address input -->
-      <div id="manual-wallet-form" style="display:none;" class="manual-wallet-form">
-        <div class="field-wrap" style="max-width:520px;">
-          <span class="field-icon" style="position:absolute;left:14px;color:var(--muted);">🔗</span>
-          <input id="wallet-address-input" class="search-input" type="text"
-            placeholder="0x... or Solana address" style="padding-left:40px;" />
-        </div>
-        <button class="search-btn" id="wallet-address-btn">Connect</button>
-      </div>
-
-      <!-- Connected wallet display -->
-      <div id="wallet-connected" class="wallet-connected" style="display:none;">
-        <div class="wallet-connected-header">
-          <div class="wallet-connected-dot"></div>
-          <span id="wallet-connected-name">MetaMask</span>
-          <span id="wallet-connected-addr" class="wallet-addr"></span>
-          <button class="wallet-disconnect-btn" id="wallet-disconnect">Disconnect</button>
-        </div>
-        <div class="wallet-balances" id="wallet-balances">
-          <div class="skeleton-card" style="height:80px;"></div>
-          <div class="skeleton-card" style="height:80px;"></div>
-          <div class="skeleton-card" style="height:80px;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  </footer>
-
-  <!-- COIN DETAIL MODAL -->
-  <div id="coin-modal" class="modal-overlay" style="display:none;">
-    <div class="modal-box">
-      <button class="modal-close" id="modal-close">✕</button>
-      <div class="modal-header">
-        <div class="modal-icon" id="modal-icon"></div>
-        <div>
-          <div class="modal-name" id="modal-name"></div>
-          <div class="modal-symbol" id="modal-symbol"></div>
-        </div>
-        <button class="pin-btn" id="modal-pin-btn" title="Pin coin">☆</button>
-      </div>
-      <div class="modal-price" id="modal-price"></div>
-      <div class="modal-change" id="modal-change"></div>
-      <!-- Sparkline -->
-      <div class="sparkline-wrap">
-        <canvas id="sparkline-canvas" height="80"></canvas>
-        <div class="sparkline-label">7-day price</div>
-      </div>
-      <div class="modal-stats" id="modal-stats"></div>
-
-      <!-- AI Summary -->
-      <div class="ai-summary-box" id="ai-summary-box">
-        <div class="ai-summary-header">
-          <span class="ai-badge">✦ AI</span>
-          <span class="ai-summary-title">Market Brief</span>
-          <button class="ai-refresh-btn" id="ai-refresh-btn" title="Refresh summary">↻</button>
-        </div>
-        <div class="ai-summary-body" id="ai-summary-body">
-          <div class="ai-loading">
-            <span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
+        <div class="alert-row">
+          <div class="alert-condition mono">SOL ≥ $170</div>
+          <div class="alert-meta">
+            <span class="label">Triggered just now</span>
+            <span class="badge badge-active">Hit</span>
           </div>
         </div>
       </div>
-
-      <button class="modal-remove-btn" id="modal-remove-btn">Remove from tracker</button>
-    </div>
+    </aside>
   </div>
+</main>
 
-  <script src="/static/flow.js"></script>
-  <script src="/static/main.js"></script>
+<script>
+// VaultX — shared frontend behavior
+// Ticker data is placeholder. Wire this up to your existing CoinGecko fetch
+// (the one your Flask backend already calls) and replace TICKER_DATA with
+// the live response — keep the same {sym, price, change} shape and the
+// rendering below will keep working as-is.
+
+const TICKER_DATA = [
+  { sym: "BTC", price: "67,214.30", change: 2.41 },
+  { sym: "ETH", price: "3,481.92", change: -1.08 },
+  { sym: "SOL", price: "172.55", change: 5.03 },
+  { sym: "ADA", price: "0.612", change: -0.42 },
+  { sym: "XRP", price: "0.581", change: 1.17 },
+  { sym: "DOGE", price: "0.187", change: -3.26 },
+  { sym: "AVAX", price: "41.08", change: 0.88 },
+];
+
+function renderTicker() {
+  const track = document.querySelector(".ticker-track");
+  if (!track) return;
+
+  const itemHTML = TICKER_DATA.map((c) => {
+    const dirClass = c.change >= 0 ? "up" : "down";
+    const arrow = c.change >= 0 ? "▲" : "▼";
+    return `
+      <span class="ticker-item">
+        <span class="sym">${c.sym}</span>
+        <span>$${c.price}</span>
+        <span class="${dirClass}">${arrow} ${Math.abs(c.change).toFixed(2)}%</span>
+      </span>`;
+  }).join("");
+
+  // duplicated once so the 50%-translateX loop is seamless
+  track.innerHTML = itemHTML + itemHTML;
+}
+
+function renderTimestamp() {
+  const el = document.querySelector("[data-updated]");
+  if (!el) return;
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  el.textContent = `Updated ${time}`;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderTicker();
+  renderTimestamp();
+});
+
+</script>
 </body>
 </html>
