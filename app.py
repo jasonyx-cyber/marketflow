@@ -135,7 +135,9 @@ def logout_alias():
 
 @app.route("/")
 def home():
-    return render_template("index.html", user_name=session.get("user_name", "Guest"))
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    return render_template("index.html", user_name=session.get("user_name", ""))
 
 @app.route("/crypto")
 @json_error_handler
